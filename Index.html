@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>課程線上快速報到核銷系統</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- HTML5-QRCode Scanner CDN -->
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <!-- QRCode.js for generating QR ticket badges -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap');
+        body {
+            font-family: 'Inter', 'Noto Sans TC', sans-serif;
+        }
+        #reader video {
+            object-fit: cover !important;
+            border-radius: 0.75rem;
+            width: 100% !important;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-100">
+                    <i data-lucide="qr-code" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h1 class="text-base sm:text-lg font-bold text-slate-900 leading-tight">實體課程快速報到系統</h1>
+                    <p class="text-xs text-slate-500">Google Sheets + Apps Script 雙向連動版</p>
+                </div>
+            </div>
+
+            <!-- Mode Switcher & Guide Button -->
+            <div class="flex items-center space-x-2">
+                <button id="toggle-sheet-config-btn" onclick="openConfigModal()" class="px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center gap-1.5 transition">
+                    <i data-lucide="sheet" class="w-4 h-4 text-emerald-600"></i>
+                    <span class="hidden sm:inline">GAS 試算表設定</span>
+                </button>
+                <button onclick="openScriptModal()" class="px-3 py-1.5 text-xs sm:text-sm font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg flex items-center gap-1.5 transition">
+                    <i data-lucide="code-2" class="w-4 h-4"></i>
+                    <span>後端程式碼</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full space-y-6">
+        <!-- Live Counters -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
+                <div>
+                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">總報名人數</span>
+                    <p id="stat-total" class="text-2xl font-bold text-slate-800 mt-0.5">0</p>
+                </div>
+                <div class="w-10 h-10 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center">
+                    <i data-lucide="users" class="w-5 h-5"></i>
+                </div>
+            </div>
+            <div class="bg-white p-4 rounded-xl border border-emerald-100 shadow-xs flex items-center justify-between">
+                <div>
+                    <span class="text-xs font-semibold text-emerald-600 uppercase tracking-wider">已報到出席</span>
+                    <p id="stat-attended" class="text-2xl font-bold text-emerald-600 mt-0.5">0</p>
+                </div>
+                <div class="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                    <i data-lucide="check-circle-2" class="w-5 h-5"></i>
+                </div>
+            </div>
+            <div class="bg-white p-4 rounded-xl border border-amber-100 shadow-xs flex items-center justify-between">
+                <div>
+                    <span class="text-xs font-semibold text-amber-600 uppercase tracking-wider">尚未報到</span>
+                    <p id="stat-pending" class="text-2xl font-bold text-amber-600 mt-0.5">0</p>
+                </div>
+                <div class="w-10 h-10 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+                    <i data-lucide="clock" class="w-5 h-5"></i>
+                </div>
+            </div>
+            <div class="bg-white p-4 rounded-xl border border-indigo-100 shadow-xs flex items-center justify-between">
+                <div>
+                    <span class="text-xs font-semibold text-indigo-600 uppercase tracking-wider">出席率</span>
+                    <p id="stat-rate" class="text-2xl font-bold text-indigo-600 mt-0.5">0%</p>
+                </div>
+                <div class="w-10 h-10 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                    <i data-lucide="pie-chart" class="w-5 h-5"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notification Banner if Real API configured -->
+        <div id="connection-banner" class="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-2.5 rounded-xl text-xs sm:text-sm flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <span id="conn-dot" class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
+                <span id="conn-text">模式：示範模擬環境（已內建測試資料）。可點擊右上角串接您的 Google Apps Script Web App。</span>
+            </div>
+            <button onclick="resetDemoData()" class="text-blue-700 underline text-xs hover:text-blue-900 font-medium">重設模擬名單</button>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <!-- Left Panel: Scanner & Search (7 Cols) -->
+            <div class="lg:col-span-7 space-y-6">
+                <!-- QR Code Scanner Box -->
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-2">
+                            <span class="w-3 h-3 rounded-full bg-emerald-500 animate-ping inline-block mr-1"></span>
+                            <h2 class="font-bold text-slate-800 text-base">相機 QR Code 掃描器</h2>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button id="cam-toggle-btn" onclick="toggleCamera()" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition flex items-center gap-1">
+                                <i data-lucide="video" class="w-3.5 h-3.5"></i>
+                                <span id="cam-btn-text">關閉相機</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Video Viewport Container -->
+                    <div class="relative bg-slate-900 rounded-xl overflow-hidden aspect-4/3 sm:aspect-16/9 flex items-center justify-center">
+                        <div id="reader" class="w-full h-full"></div>
+                        <div id="scanner-overlay" class="absolute inset-0 pointer-events-none flex flex-col items-center justify-center">
+                            <div class="w-48 h-48 sm:w-56 sm:h-56 border-2 border-indigo-400 border-dashed rounded-2xl relative shadow-2xl flex items-center justify-center">
+                                <div class="w-full h-0.5 bg-indigo-400 absolute top-0 animate-pulse"></div>
+                                <span class="text-[11px] text-white/80 bg-black/60 px-2.5 py-1 rounded-full">對準票券 QR Code</span>
+                            </div>
+                        </div>
+                        <!-- Scanner Placeholder when off -->
+                        <div id="scanner-placeholder" class="hidden absolute inset-0 bg-slate-800 text-slate-300 flex-col items-center justify-center p-6 text-center space-y-3">
+                            <i data-lucide="camera-off" class="w-10 h-10 text-slate-400"></i>
+                            <p class="text-sm">相機已關閉或暫停掃描</p>
+                            <button onclick="startCamera()" class="px-4 py-2 text-xs font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-500">點擊啟用鏡頭</button>
+                        </div>
+                    </div>
+
+                    <!-- Last Scan Result Badge Card -->
+                    <div id="scan-feedback" class="mt-4 p-4 rounded-xl border border-slate-200 bg-slate-50 transition-all">
+                        <div class="flex items-center gap-3">
+                            <div id="feedback-icon" class="w-10 h-10 rounded-lg bg-slate-200 text-slate-500 flex items-center justify-center">
+                                <i data-lucide="scan" class="w-5 h-5"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <h4 id="feedback-title" class="text-sm font-bold text-slate-800">等待掃描中...</h4>
+                                <p id="feedback-desc" class="text-xs text-slate-500 truncate">將學員的 QR Code 出示於鏡頭前進行核銷</p>
+                            </div>
+                            <div id="feedback-badge" class="hidden text-xs font-bold px-2.5 py-1 rounded-full"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                    <div class="flex items-center justify-between">
+                        <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                            <i data-lucide="keyboard" class="w-4 h-4 text-indigo-600"></i>
+                            人工備用搜尋核銷
+                        </h3>
+                        <span class="text-xs text-slate-400">手機號碼 / 姓名 / 序號</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <div class="relative flex-1">
+                            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+                            <input id="manual-query" type="text" placeholder="輸入手機末三碼、姓名或 Ticket Token..." class="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" onkeydown="if(event.key==='Enter') executeManualSearch()">
+                        </div>
+                        <button onclick="executeManualSearch()" class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-sm font-medium transition">搜尋核銷</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Attendee Roster & Ticket Preview (5 Cols) -->
+            <div class="lg:col-span-5 space-y-6">
+                <!-- Roster List with Filters -->
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col h-[520px]">
+                    <div class="p-4 border-b border-slate-100 flex items-center justify-between">
+                        <div>
+                            <h3 class="font-bold text-slate-800 text-sm">課程學員簽到名冊</h3>
+                            <p class="text-xs text-slate-400">點擊學員可預覽票券 QR Code</p>
+                        </div>
+                        <select id="roster-filter" onchange="renderAttendees()" class="text-xs border border-slate-200 rounded-md px-2 py-1 bg-slate-50 text-slate-600 focus:outline-none">
+                            <option value="all">全部學員</option>
+                            <option value="pending">尚未報到</option>
+                            <option value="attended">已報到</option>
+                        </select>
+                    </div>
+
+                    <!-- Scrollable List -->
+                    <div id="attendee-list" class="flex-1 overflow-y-auto divide-y divide-slate-100 p-2">
+                        <!-- Dynamic items injected here -->
+                    </div>
+
+                    <!-- Add Attendee Fast Action -->
+                    <div class="p-3 border-t border-slate-100 bg-slate-50/50 rounded-b-2xl">
+                        <button onclick="openAddModal()" class="w-full py-2 border border-dashed border-slate-300 hover:border-indigo-500 text-indigo-600 rounded-lg text-xs font-semibold hover:bg-indigo-50/50 transition flex items-center justify-center gap-1">
+                            <i data-lucide="user-plus" class="w-4 h-4"></i>
+                            快速新增學員報名資料
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal: View Attendee QR Badge -->
+    <div id="ticket-modal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 text-center space-y-4">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="font-bold text-slate-800 text-base">學員入場憑證票券</h3>
+                <button onclick="closeTicketModal()" class="text-slate-400 hover:text-slate-600">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <div class="bg-indigo-50/60 p-4 rounded-xl space-y-1">
+                <p id="modal-ticket-name" class="font-bold text-lg text-slate-900">陳大明</p>
+                <p id="modal-ticket-phone" class="text-xs text-slate-500">0912-345-678</p>
+                <p id="modal-ticket-seat" class="text-xs font-medium text-indigo-600">座位 / 組別：A 桌 03 號</p>
+            </div>
+
+            <!-- QR Container -->
+            <div class="flex justify-center p-3 bg-white border border-slate-100 rounded-xl">
+                <div id="qrcode-container" class="p-2 bg-white"></div>
+            </div>
+
+            <p class="text-xs text-slate-400">可用上方相機鏡頭對準此螢幕進行報到測試</p>
+
+            <button onclick="closeTicketModal()" class="w-full py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-sm font-medium transition">
+                關閉
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal: Google Apps Script Backend Code & Tutorial -->
+    <div id="script-modal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl shadow-xl max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                <div>
+                    <h3 class="font-bold text-slate-800 text-base">Google Apps Script (GAS) 後端部署教學與代碼</h3>
+                    <p class="text-xs text-slate-500">零伺服器架構，與 Google 試算表直接連動</p>
+                </div>
+                <button onclick="closeScriptModal()" class="text-slate-400 hover:text-slate-600">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div class="p-6 overflow-y-auto space-y-5 text-sm">
+                <div>
+                    <h4 class="font-bold text-slate-900 mb-2 flex items-center gap-1.5">
+                        <span class="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs">1</span>
+                        Google 試算表欄位設定
+                    </h4>
+                    <p class="text-xs text-slate-600 mb-2">建立一份新的 Google Sheet，第 1 列請確保標題名稱如下（不可錯字）：</p>
+                    <div class="bg-slate-100 p-3 rounded-lg text-xs font-mono text-slate-700 overflow-x-auto">
+                        Token | 姓名 | 電話 | 桌次備註 | 報到狀態 | 報到時間
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="font-bold text-slate-900 mb-2 flex items-center gap-1.5">
+                        <span class="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs">2</span>
+                        複製貼上 Code.gs 程式碼
+                    </h4>
+                    <p class="text-xs text-slate-600 mb-2">在試算表點選「擴充功能」>「Apps Script」，清空後貼上以下程式：</p>
+                    <div class="relative">
+                        <pre class="bg-slate-900 text-emerald-300 p-4 rounded-xl text-xs font-mono overflow-x-auto max-h-56 leading-relaxed" id="gas-code-block">
+/**
+ * 課程快速報到系統後端 API (Google Apps Script)
+ * Sheet 結構: [A: Token, B: 姓名, C: 電話, D: 桌次備註, E: 報到狀態, F: 報到時間]
+ */
+
+function doGet(e) {
+  return handleRequest(e);
+}
+
+function doPost(e) {
+  return handleRequest(e);
+}
+
+function handleRequest(e) {
+  var lock = LockService.getScriptLock();
+  lock.tryLock(10000); // 避免多個志工同時掃描發生寫入衝突
+
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getActiveSheet();
+    var data = sheet.getDataRange().getValues();
+    
+    var action = e.parameter.action || (e.postData ? JSON.parse(e.postData.contents).action : "list");
+    
+    // 1. 取得所有學員名單
+    if (action === "list") {
+      var attendees = [];
+      for (var i = 1; i < data.length; i++) {
+        attendees.push({
+          token: String(data[i][0]),
+          name: String(data[i][1]),
+          phone: String(data[i][2]),
+          note: String(data[i][3]),
+          status: String(data[i][4]) || "pending",
+          checkinTime: data[i][5] ? Utilities.formatDate(new Date(data[i][5]), "Asia/Taipei", "HH:mm:ss") : ""
+        });
+      }
+      return jsonResponse({ success: true, attendees: attendees });
+    }
+
+    // 2. 進行核銷簽到
+    if (action === "checkin") {
+      var token = e.parameter.token || (e.postData ? JSON.parse(e.postData.contents).token : "");
+      if (!token) return jsonResponse({ success: false, message: "缺少票券 Token" });
+
+      for (var r = 1; r < data.length; r++) {
+        if (String(data[r][0]).trim() === String(token).trim()) {
+          var currentStatus = String(data[r][4]);
+          if (currentStatus === "attended") {
+            return jsonResponse({
+              success: false,
+              alreadyAttended: true,
+              message: "重複報到！該學員已於 " + (data[r][5] ? Utilities.formatDate(new Date(data[r][5]), "Asia/Taipei", "HH:mm:ss") : "稍早") + " 完成報到",
+              attendee: { name: data[r][1], note: data[r][3] }
+            });
+          }
+
+          // 標記出席並寫入時間
+          var now = new Date();
+          sheet.getRange(r + 1, 5).setValue("attended");
+          sheet.getRange(r + 1, 6).setValue(now);
+
+          return jsonResponse({
+            success: true,
+            message: "報到成功！",
+            attendee: {
+              token: data[r][0],
+              name: data[r][1],
+              phone: data[r][2],
+              note: data[r][3],
+              status: "attended",
+              checkinTime: Utilities.formatDate(now, "Asia/Taipei", "HH:mm:ss")
+            }
+          });
+        }
+      }
+      return jsonResponse({ success: false, notFound: true, message: "查無此票券代碼，無效票券！" });
+    }
+
+    return jsonResponse({ success: false, message: "未知操作" });
+
+  } catch (err) {
+    return jsonResponse({ success: false, error: err.toString() });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function jsonResponse(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}</pre>
+                        <button onclick="copyGasCode()" class="absolute top-3 right-3 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs px-2.5 py-1 rounded-md border border-slate-700 flex items-center gap-1">
+                            <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                            <span id="copy-btn-text">複製代碼</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="font-bold text-slate-900 mb-2 flex items-center gap-1.5">
+                        <span class="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs">3</span>
+                        發布為網頁應用程式 (Web App)
+                    </h4>
+                    <ol class="list-decimal list-inside space-y-1 text-xs text-slate-600">
+                        <li>點擊右上角「部署」按鈕 >「新增部署作業」。</li>
+                        <li>類型選擇「網頁應用程式 (Web App)」。</li>
+                        <li><b>誰可以存取 (Who has access)</b>：務必選 <b>「所有人 (Anyone)」</b>（這樣前端瀏覽器才有權限核銷）。</li>
+                        <li>點擊「部署」，複製產生的「網頁應用程式網址 (Web App URL)」。</li>
+                        <li>回到本網頁點擊右上角「GAS 試算表設定」，將 URL 貼入即可啟用真機串接！</li>
+                    </ol>
+                </div>
+            </div>
+
+            <div class="px-6 py-3 bg-slate-50 border-t border-slate-200 flex justify-end">
+                <button onclick="closeScriptModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-semibold">了解</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: GAS URL Settings -->
+    <div id="config-modal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
+            <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                <i data-lucide="settings-2" class="w-5 h-5 text-indigo-600"></i>
+                Google Apps Script 連線設定
+            </h3>
+            <p class="text-xs text-slate-500">若有自建的 Apps Script 網頁應用程式 URL，請貼在下方。若清空留白則會切換回前端獨立模擬環境。</p>
+            
+            <div class="space-y-1">
+                <label class="text-xs font-medium text-slate-700">Web App API Endpoint</label>
+                <input id="gas-url-input" type="url" placeholder="https://script.google.com/macros/s/.../exec" class="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2">
+                <button onclick="closeConfigModal()" class="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg">取消</button>
+                <button onclick="saveGasConfig()" class="px-4 py-2 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg">儲存並同步</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Add New Attendee -->
+    <div id="add-modal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
+            <h3 class="font-bold text-slate-800 text-base">新增學員票券資料</h3>
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="font-medium text-slate-700">學員姓名</label>
+                    <input id="new-name" type="text" placeholder="例如：林書緯" class="mt-1 w-full p-2 border border-slate-300 rounded-lg">
+                </div>
+                <div>
+                    <label class="font-medium text-slate-700">手機號碼</label>
+                    <input id="new-phone" type="text" placeholder="例如：0988-123-456" class="mt-1 w-full p-2 border border-slate-300 rounded-lg">
+                </div>
+                <div>
+                    <label class="font-medium text-slate-700">桌次 / 組別 / 備註</label>
+                    <input id="new-note" type="text" placeholder="例如：VIP / B桌 02 號" class="mt-1 w-full p-2 border border-slate-300 rounded-lg">
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 pt-2">
+                <button onclick="closeAddModal()" class="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg">取消</button>
+                <button onclick="submitNewAttendee()" class="px-4 py-2 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg">新增至名冊</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* ============================================================
+           1. State Management & Mock Data
+           ============================================================ */
+        const DEFAULT_ATTENDEES = [
+            { token: "TICKET-A101", name: "王曉明", phone: "0912-345-678", note: "A桌 01 號 (貴賓)", status: "attended", checkinTime: "09:02:15" },
+            { token: "TICKET-B204", name: "李雅婷", phone: "0923-456-789", note: "B桌 04 號", status: "pending", checkinTime: "" },
+            { token: "TICKET-C308", name: "張俊傑", phone: "0934-567-890", note: "C桌 08 號", status: "pending", checkinTime: "" },
+            { token: "TICKET-D412", name: "陳冠宇", phone: "0945-678-901", note: "D桌 12 號", status: "pending", checkinTime: "" },
+            { token: "TICKET-E516", name: "林佩珊", phone: "0956-789-012", note: "E桌 16 號 (素食)", status: "pending", checkinTime: "" }
+        ];
+
+        let attendees = [];
+        let html5QrCodeScanner = null;
+        let isCameraActive = false;
+        let isScanningLocked = false;
+        let gasApiUrl = localStorage.getItem("gas_checkin_api") || "";
+
+        // Audio Context for Web Audio Synthesizer (No external mp3 needed)
+        let audioCtx = null;
+        function getAudioContext() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            return audioCtx;
+        }
+
+        // Play pleasant "ding-dong" beep for success
+        function playSuccessSound() {
+            try {
+                const ctx = getAudioContext();
+                const now = ctx.currentTime;
+                
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = "sine";
+                osc.frequency.setValueAtTime(880, now); // A5
+                osc.frequency.exponentialRampToValueAtTime(1320, now + 0.15); // E6
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.3);
+            } catch (e) {
+                console.error("Audio play failed", e);
+            }
+        }
+
+        // Play low double buzzer for error/duplicate
+        function playWarningSound() {
+            try {
+                const ctx = getAudioContext();
+                const now = ctx.currentTime;
+
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = "sawtooth";
+                osc.frequency.setValueAtTime(220, now);
+                osc.frequency.setValueAtTime(180, now + 0.15);
+
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.35);
+            } catch (e) {
+                console.error("Audio play failed", e);
+            }
+        }
+
+        function initApp() {
+            lucide.createIcons();
+            loadAttendees();
+            updateStats();
+            updateConnectionBanner();
+            startCamera();
+        }
+
+        function loadAttendees() {
+            const saved = localStorage.getItem("course_checkin_attendees");
+            if (saved) {
+                try {
+                    attendees = JSON.parse(saved);
+                } catch (e) {
+                    attendees = JSON.parse(JSON.stringify(DEFAULT_ATTENDEES));
+                }
+            } else {
+                attendees = JSON.parse(JSON.stringify(DEFAULT_ATTENDEES));
+                saveAttendees();
+            }
+            renderAttendees();
+        }
+
+        function saveAttendees() {
+            localStorage.setItem("course_checkin_attendees", JSON.stringify(attendees));
+            updateStats();
+        }
+
+        function resetDemoData() {
+            attendees = JSON.parse(JSON.stringify(DEFAULT_ATTENDEES));
+            saveAttendees();
+            renderAttendees();
+            showFeedback("已重設名單", "名單已還原為預設模擬資料", "info");
+        }
+
+        function updateStats() {
+            const total = attendees.length;
+            const attended = attendees.filter(a => a.status === 'attended').length;
+            const pending = total - attended;
+            const rate = total === 0 ? 0 : Math.round((attended / total) * 100);
+
+            document.getElementById("stat-total").innerText = total;
+            document.getElementById("stat-attended").innerText = attended;
+            document.getElementById("stat-pending").innerText = pending;
+            document.getElementById("stat-rate").innerText = `${rate}%`;
+        }
+
+        function renderAttendees() {
+            const listEl = document.getElementById("attendee-list");
+            const filter = document.getElementById("roster-filter").value;
+            listEl.innerHTML = "";
+
+            const filtered = attendees.filter(item => {
+                if (filter === "all") return true;
+                return item.status === filter;
+            });
+
+            if (filtered.length === 0) {
+                listEl.innerHTML = `
+                    <div class="py-12 text-center text-slate-400 text-xs">
+                        <i data-lucide="inbox" class="w-8 h-8 mx-auto mb-2 opacity-50"></i>
+                        目前無此分類學員
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            filtered.forEach(item => {
+                const isAttended = item.status === "attended";
+                const row = document.createElement("div");
+                row.className = `p-3 rounded-xl hover:bg-slate-50 transition cursor-pointer flex items-center justify-between group ${isAttended ? 'bg-emerald-50/20' : ''}`;
+                row.onclick = () => openTicketModal(item);
+
+                row.innerHTML = `
+                    <div class="flex items-center space-x-3 min-w-0">
+                        <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${isAttended ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'}">
+                            ${item.name.substring(0, 1)}
+                        </div>
+                        <div class="truncate">
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-sm font-semibold text-slate-800">${item.name}</span>
+                                <span class="text-[11px] text-slate-400">(${item.phone.slice(-4)})</span>
+                            </div>
+                            <p class="text-[11px] text-slate-500 truncate">${item.note}</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        ${isAttended 
+                            ? `<div class="text-right">
+                                 <span class="inline-flex items-center text-[10px] font-semibold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">已報到</span>
+                                 <p class="text-[10px] text-slate-400 mt-0.5">${item.checkinTime}</p>
+                               </div>`
+                            : `<button onclick="event.stopPropagation(); manualConfirm('${item.token}')" class="px-2.5 py-1 text-xs font-semibold bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg transition">
+                                 核銷
+                               </button>`
+                        }
+                    </div>
+                `;
+                listEl.appendChild(row);
+            });
+
+            lucide.createIcons();
+        }
+
+        async function processCheckin(token) {
+            if (!token || isScanningLocked) return;
+            isScanningLocked = true;
+
+            const cleanToken = token.trim();
+
+            // Check if user is using Google Apps Script Live API
+            if (gasApiUrl) {
+                showFeedback("雲端核銷中...", `正在向 Google 試算表請求：${cleanToken}`, "info");
+                try {
+                    const response = await fetch(`${gasApiUrl}?action=checkin&token=${encodeURIComponent(cleanToken)}`);
+                    const res = await response.json();
+
+                    if (res.success) {
+                        playSuccessSound();
+                        showFeedback("報到成功！", `${res.attendee.name}（${res.attendee.note || '出席'}）`, "success");
+                        // Refresh remote list
+                        syncWithGAS();
+                    } else if (res.alreadyAttended) {
+                        playWarningSound();
+                        showFeedback("重複報到警告", res.message, "warning");
+                    } else {
+                        playWarningSound();
+                        showFeedback("無效票券", res.message || "查無此 Token", "error");
+                    }
+                } catch (err) {
+                    playWarningSound();
+                    showFeedback("連線失敗", "無法連接至 Google 試算表，請檢查 Web App 權限", "error");
+                }
+            } else {
+                // Local Simulation Logic
+                const index = attendees.findIndex(a => a.token.toLowerCase() === cleanToken.toLowerCase());
+
+                if (index === -1) {
+                    playWarningSound();
+                    showFeedback("無效憑證！", `票券碼 [${cleanToken}] 不在報名名冊中`, "error");
+                } else {
+                    const attendee = attendees[index];
+                    if (attendee.status === "attended") {
+                        playWarningSound();
+                        showFeedback("重複簽到！", `${attendee.name} 已於 ${attendee.checkinTime} 報到過`, "warning");
+                    } else {
+                        const now = new Date();
+                        const timeStr = now.toTimeString().split(' ')[0];
+                        attendee.status = "attended";
+                        attendee.checkinTime = timeStr;
+                        saveAttendees();
+                        renderAttendees();
+                        playSuccessSound();
+                        showFeedback("報到成功！", `${attendee.name} | ${attendee.note}`, "success");
+                    }
+                }
+            }
+
+            // Lock scanner for 2 seconds to prevent rapid double triggers
+            setTimeout(() => {
+                isScanningLocked = false;
+            }, 2000);
+        }
+
+        function manualConfirm(token) {
+            processCheckin(token);
+        }
+
+        function executeManualSearch() {
+            const query = document.getElementById("manual-query").value.trim().toLowerCase();
+            if (!query) return;
+
+            const match = attendees.find(a => 
+                a.name.toLowerCase().includes(query) ||
+                a.phone.replace(/[^0-9]/g, '').includes(query) ||
+                a.token.toLowerCase() === query
+            );
+
+            if (match) {
+                processCheckin(match.token);
+                document.getElementById("manual-query").value = "";
+            } else {
+                playWarningSound();
+                showFeedback("找不到學員", `查無符號符合「${query}」的資料`, "error");
+            }
+        }
+
+        function showFeedback(title, desc, type) {
+            const container = document.getElementById("scan-feedback");
+            const iconWrap = document.getElementById("feedback-icon");
+            const titleEl = document.getElementById("feedback-title");
+            const descEl = document.getElementById("feedback-desc");
+            const badgeEl = document.getElementById("feedback-badge");
+
+            titleEl.innerText = title;
+            descEl.innerText = desc;
+
+            badgeEl.classList.remove("hidden", "bg-emerald-100", "text-emerald-700", "bg-amber-100", "text-amber-700", "bg-rose-100", "text-rose-700");
+
+            if (type === "success") {
+                container.className = "mt-4 p-4 rounded-xl border border-emerald-300 bg-emerald-50 transition-all";
+                iconWrap.className = "w-10 h-10 rounded-lg bg-emerald-500 text-white flex items-center justify-center";
+                iconWrap.innerHTML = `<i data-lucide="check" class="w-5 h-5"></i>`;
+                badgeEl.innerText = "驗證核銷通過";
+                badgeEl.classList.add("bg-emerald-100", "text-emerald-700");
+            } else if (type === "warning") {
+                container.className = "mt-4 p-4 rounded-xl border border-amber-300 bg-amber-50 transition-all";
+                iconWrap.className = "w-10 h-10 rounded-lg bg-amber-500 text-white flex items-center justify-center";
+                iconWrap.innerHTML = `<i data-lucide="alert-triangle" class="w-5 h-5"></i>`;
+                badgeEl.innerText = "已報到 / 重複";
+                badgeEl.classList.add("bg-amber-100", "text-amber-700");
+            } else if (type === "error") {
+                container.className = "mt-4 p-4 rounded-xl border border-rose-300 bg-rose-50 transition-all";
+                iconWrap.className = "w-10 h-10 rounded-lg bg-rose-500 text-white flex items-center justify-center";
+                iconWrap.innerHTML = `<i data-lucide="x" class="w-5 h-5"></i>`;
+                badgeEl.innerText = "無效憑證";
+                badgeEl.classList.add("bg-rose-100", "text-rose-700");
+            } else {
+                container.className = "mt-4 p-4 rounded-xl border border-slate-200 bg-slate-50 transition-all";
+                iconWrap.className = "w-10 h-10 rounded-lg bg-slate-200 text-slate-500 flex items-center justify-center";
+                iconWrap.innerHTML = `<i data-lucide="scan" class="w-5 h-5"></i>`;
+                badgeEl.classList.add("hidden");
+            }
+            lucide.createIcons();
+        }
+
+        function startCamera() {
+            const placeholder = document.getElementById("scanner-placeholder");
+            const btnText = document.getElementById("cam-btn-text");
+
+            if (!html5QrCodeScanner) {
+                html5QrCodeScanner = new Html5Qrcode("reader");
+            }
+
+            const config = { fps: 10, qrbox: { width: 220, height: 220 } };
+
+            html5QrCodeScanner.start({ facingMode: "environment" }, config, onScanSuccess)
+                .then(() => {
+                    isCameraActive = true;
+                    placeholder.classList.add("hidden");
+                    btnText.innerText = "暫停鏡頭";
+                })
+                .catch(err => {
+                    console.warn("Camera start failed, perhaps permissions denied:", err);
+                    isCameraActive = false;
+                    placeholder.classList.remove("hidden");
+                    btnText.innerText = "啟用相機";
+                });
+        }
+
+        function stopCamera() {
+            if (html5QrCodeScanner && isCameraActive) {
+                html5QrCodeScanner.stop().then(() => {
+                    isCameraActive = false;
+                    document.getElementById("scanner-placeholder").classList.remove("hidden");
+                    document.getElementById("cam-btn-text").innerText = "開啟相機";
+                }).catch(err => console.error(err));
+            }
+        }
+
+        function toggleCamera() {
+            if (isCameraActive) {
+                stopCamera();
+            } else {
+                startCamera();
+            }
+        }
+
+        function onScanSuccess(decodedText) {
+            // Process scanned text (handles raw token or full url like ?token=XYZ)
+            let token = decodedText;
+            if (decodedText.includes("token=")) {
+                try {
+                    const url = new URL(decodedText);
+                    token = url.searchParams.get("token") || decodedText;
+                } catch(e) {
+                    const parts = decodedText.split("token=");
+                    if (parts[1]) token = parts[1].split("&")[0];
+                }
+            }
+            processCheckin(token);
+        }
+
+        let qrcodeInstance = null;
+
+        function openTicketModal(attendee) {
+            document.getElementById("modal-ticket-name").innerText = attendee.name;
+            document.getElementById("modal-ticket-phone").innerText = attendee.phone;
+            document.getElementById("modal-ticket-seat").innerText = attendee.note;
+
+            const qrContainer = document.getElementById("qrcode-container");
+            qrContainer.innerHTML = "";
+            
+            // Generate QR Code with standard QRCode.js
+            qrcodeInstance = new QRCode(qrContainer, {
+                text: attendee.token,
+                width: 170,
+                height: 170,
+                colorDark : "#1e293b",
+                colorLight : "#ffffff",
+                correctLevel : QRCode.CorrectLevel.H
+            });
+
+            document.getElementById("ticket-modal").classList.remove("hidden");
+        }
+
+        function closeTicketModal() {
+            document.getElementById("ticket-modal").classList.add("hidden");
+        }
+
+        function openScriptModal() {
+            document.getElementById("script-modal").classList.remove("hidden");
+        }
+
+        function closeScriptModal() {
+            document.getElementById("script-modal").classList.add("hidden");
+        }
+
+        function openConfigModal() {
+            document.getElementById("gas-url-input").value = gasApiUrl;
+            document.getElementById("config-modal").classList.remove("hidden");
+        }
+
+        function closeConfigModal() {
+            document.getElementById("config-modal").classList.add("hidden");
+        }
+
+        function saveGasConfig() {
+            gasApiUrl = document.getElementById("gas-url-input").value.trim();
+            localStorage.setItem("gas_checkin_api", gasApiUrl);
+            closeConfigModal();
+            updateConnectionBanner();
+            if (gasApiUrl) {
+                syncWithGAS();
+            }
+        }
+
+        function updateConnectionBanner() {
+            const dot = document.getElementById("conn-dot");
+            const text = document.getElementById("conn-text");
+            if (gasApiUrl) {
+                dot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500";
+                text.innerText = `已連線至 Google Sheets Web App: ${gasApiUrl.substring(0, 45)}...`;
+            } else {
+                dot.className = "w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse";
+                text.innerText = "模式：示範模擬環境（資料存於本機）。可隨時點擊右上角串接您的 Google Apps Script。";
+            }
+        }
+
+        async function syncWithGAS() {
+            if (!gasApiUrl) return;
+            try {
+                const res = await fetch(`${gasApiUrl}?action=list`);
+                const data = await res.json();
+                if (data.success && data.attendees) {
+                    attendees = data.attendees;
+                    saveAttendees();
+                    renderAttendees();
+                }
+            } catch(e) {
+                console.warn("GAS sync error", e);
+            }
+        }
+
+        function openAddModal() {
+            document.getElementById("add-modal").classList.remove("hidden");
+        }
+
+        function closeAddModal() {
+            document.getElementById("add-modal").classList.add("hidden");
+            document.getElementById("new-name").value = "";
+            document.getElementById("new-phone").value = "";
+            document.getElementById("new-note").value = "";
+        }
+
+        function submitNewAttendee() {
+            const name = document.getElementById("new-name").value.trim();
+            const phone = document.getElementById("new-phone").value.trim();
+            const note = document.getElementById("new-note").value.trim() || "一般學員";
+
+            if (!name || !phone) {
+                alert("請填寫姓名與電話！");
+                return;
+            }
+
+            const randStr = Math.floor(1000 + Math.random() * 9000);
+            const newTicket = {
+                token: `TICKET-${randStr}`,
+                name: name,
+                phone: phone,
+                note: note,
+                status: "pending",
+                checkinTime: ""
+            };
+
+            attendees.unshift(newTicket);
+            saveAttendees();
+            renderAttendees();
+            closeAddModal();
+            showFeedback("新增成功", `已為 ${name} 建立專屬票券憑證`, "success");
+        }
+
+        function copyGasCode() {
+            const code = document.getElementById("gas-code-block").innerText;
+            const temp = document.createElement("textarea");
+            temp.value = code;
+            document.body.appendChild(temp);
+            temp.select();
+            document.execCommand("copy");
+            document.body.removeChild(temp);
+
+            const btnText = document.getElementById("copy-btn-text");
+            btnText.innerText = "已複製！";
+            setTimeout(() => { btnText.innerText = "複製代碼"; }, 2000);
+        }
+
+        // Initialize on load
+        window.onload = initApp;
+    </script>
+</body>
+</html>
