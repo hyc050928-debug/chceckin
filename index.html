@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>實體課程快速報到核銷系統</title>
+    <title>實體課程簽到/簽退系統</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Lucide Icons CDN -->
@@ -40,6 +40,10 @@
             border-radius: 0.75rem;
             width: 100% !important;
         }
+        /* 前置自拍鏡頭時水平鏡像翻轉 */
+        #reader.mirror-mode video {
+            transform: scaleX(-1);
+        }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
@@ -56,7 +60,6 @@
                 </div>
             </div>
 
-            <!-- Header Action Buttons -->
             <div class="flex items-center space-x-2">
                 <button id="toggle-sheet-config-btn" onclick="openConfigModal()" class="px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center gap-1.5 transition">
                     <i data-lucide="sheet" class="w-4 h-4 text-emerald-600"></i>
@@ -64,7 +67,7 @@
                 </button>
                 <button onclick="openScriptModal()" class="px-3 py-1.5 text-xs sm:text-sm font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg flex items-center gap-1.5 transition">
                     <i data-lucide="code-2" class="w-4 h-4"></i>
-                    <span>後端程式碼</span>
+                    <span>後端結構說明</span>
                 </button>
             </div>
         </div>
@@ -72,7 +75,7 @@
 
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full space-y-6">
         
-        <!-- 即時出席統計卡片 -->
+        <!-- 出席即時統計卡片 -->
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
                 <div>
@@ -112,7 +115,7 @@
             </div>
         </div>
 
-        <!-- 雲端狀態連線列 -->
+        <!-- 連線提示橫幅 -->
         <div id="connection-banner" class="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-2.5 rounded-xl text-xs sm:text-sm flex items-center justify-between">
             <div class="flex items-center gap-2">
                 <span id="conn-dot" class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
@@ -121,18 +124,29 @@
             <button onclick="resetDemoData()" class="text-blue-700 underline text-xs hover:text-blue-900 font-medium">重設模擬名單</button>
         </div>
 
-        <!-- 課程名稱輸入與簽到/簽退切換列 -->
-        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-4 items-center justify-between">
-            <div class="flex items-center gap-2 w-full sm:w-auto">
-                <label for="current-course" class="text-xs font-bold text-slate-700 whitespace-nowrap flex items-center gap-1">
-                    <i data-lucide="book-open" class="w-4 h-4 text-indigo-600"></i>
-                    課堂名稱：
-                </label>
-                <input id="current-course" type="text" value="第一天上午課" placeholder="請輸入課程或場次名稱..." oninput="updateStats(); renderAttendees();"
-                       class="text-sm px-3 py-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none w-full sm:w-72 font-medium bg-slate-50 focus:bg-white transition">
+        <!-- 課程、時間與打卡動作控制列 -->
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
+            <div class="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                <div class="flex items-center gap-2">
+                    <label for="current-course" class="text-xs font-bold text-slate-700 whitespace-nowrap flex items-center gap-1">
+                        <i data-lucide="book-open" class="w-4 h-4 text-indigo-600"></i>
+                        課堂名稱：
+                    </label>
+                    <input id="current-course" type="text" value="第一天上午課" placeholder="課程或場次名稱..." oninput="updateStats(); renderAttendees();"
+                           class="text-sm px-3 py-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none w-44 font-medium bg-slate-50 focus:bg-white transition">
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <label for="course-start-time" class="text-xs font-bold text-slate-700 whitespace-nowrap flex items-center gap-1">
+                        <i data-lucide="alarm-clock" class="w-4 h-4 text-amber-600"></i>
+                        應到時間：
+                    </label>
+                    <input id="course-start-time" type="time" value="09:00" 
+                           class="text-sm px-2.5 py-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none font-medium bg-slate-50">
+                </div>
             </div>
             
-            <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+            <div class="flex items-center gap-2 w-full md:w-auto justify-end">
                 <span class="text-xs font-bold text-slate-700">打卡動作：</span>
                 <div class="inline-flex p-1 bg-slate-100 rounded-xl border border-slate-200">
                     <button id="btn-mode-in" onclick="setCheckMode('簽到')" type="button" class="px-5 py-1.5 text-xs font-bold rounded-lg transition bg-emerald-600 text-white shadow-sm">
@@ -155,7 +169,13 @@
                             <h2 class="font-bold text-slate-800 text-base">相機 QR Code 掃描器</h2>
                         </div>
                         <div class="flex items-center gap-2">
-                            <button id="cam-toggle-btn" onclick="toggleCamera()" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition flex items-center gap-1">
+                            <!-- 前後鏡頭切換鍵 -->
+                            <button id="cam-flip-btn" onclick="switchCameraFacing()" type="button" class="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition flex items-center gap-1">
+                                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                                <span id="cam-facing-text">前鏡頭</span>
+                            </button>
+                            <!-- 啟閉鏡頭鍵 -->
+                            <button id="cam-toggle-btn" onclick="toggleCamera()" type="button" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition flex items-center gap-1">
                                 <i data-lucide="video" class="w-3.5 h-3.5"></i>
                                 <span id="cam-btn-text">關閉相機</span>
                             </button>
@@ -171,7 +191,6 @@
                                 <span class="text-[11px] text-white/80 bg-black/60 px-2.5 py-1 rounded-full">對準票券 QR Code</span>
                             </div>
                         </div>
-                        <!-- 關閉鏡頭時的佔位層 -->
                         <div id="scanner-placeholder" class="hidden absolute inset-0 bg-slate-800 text-slate-300 flex-col items-center justify-center p-6 text-center space-y-3">
                             <i data-lucide="camera-off" class="w-10 h-10 text-slate-400"></i>
                             <p class="text-sm">相機已關閉或暫停掃描</p>
@@ -221,7 +240,6 @@
                             <h3 class="font-bold text-slate-800 text-sm">課程學員簽到名冊</h3>
                             <p class="text-xs text-slate-400">點擊學員卡片可預覽專屬票券</p>
                         </div>
-                        <!-- 狀態篩選下拉選單 -->
                         <select id="roster-filter" onchange="renderAttendees()" class="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-slate-50 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500">
                             <option value="all">全部學員</option>
                             <option value="attended">已簽到</option>
@@ -229,20 +247,19 @@
                         </select>
                     </div>
 
-                    <!-- 學員清單捲軸區 -->
                     <div id="attendee-list" class="flex-1 overflow-y-auto divide-y divide-slate-100 p-2">
-                        <!-- 動態插入學員項目 -->
+                        <!-- 動態插入學員名單 -->
                     </div>
 
                     <div class="p-3 border-t border-slate-100 bg-slate-50/50 rounded-b-2xl text-center">
-                        <span class="text-xs text-slate-400">簽到資料自動依據「目前課堂」即時統計計算</span>
+                        <span class="text-xs text-slate-400">簽到資料依「目前課堂」動態計算統計</span>
                     </div>
                 </div>
             </div>
         </div>
     </main>
 
-    <!-- Modal: 學員 QR 票券預覽 -->
+    <!-- Modal: 學員票券 QR Code -->
     <div id="ticket-modal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 hidden">
         <div class="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 text-center space-y-4">
             <div class="flex justify-between items-center border-b pb-3">
@@ -277,7 +294,7 @@
                 <i data-lucide="settings-2" class="w-5 h-5 text-indigo-600"></i>
                 Google Apps Script 連線設定
             </h3>
-            <p class="text-xs text-slate-500">請貼上部署為「所有人 (Anyone)」存取的 Web App API 網址。留白則切換回本地模擬展示模式。</p>
+            <p class="text-xs text-slate-500">請貼上部署為「所有人 (Anyone)」存取的 Web App API 網址。若清空則切換回本地模擬模式。</p>
             
             <div class="space-y-1">
                 <label class="text-xs font-medium text-slate-700">Web App API Endpoint</label>
@@ -291,11 +308,11 @@
         </div>
     </div>
 
-    <!-- Modal: 後端說明 -->
+    <!-- Modal: 說明 -->
     <div id="script-modal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 hidden">
         <div class="bg-white rounded-2xl shadow-xl max-w-xl w-full p-6 space-y-4">
             <div class="flex justify-between items-center border-b pb-3">
-                <h3 class="font-bold text-slate-800 text-base">Google 試算表結構與運作提示</h3>
+                <h3 class="font-bold text-slate-800 text-base">Google 試算表結構與規則說明</h3>
                 <button onclick="closeScriptModal()" class="text-slate-400 hover:text-slate-600">
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
@@ -304,19 +321,23 @@
                 <p>請確認試算表具備以下兩個工作表分頁：</p>
                 <div class="p-3 bg-slate-100 rounded-lg font-mono">
                     <b>分頁 1【學員名冊】</b>：Token | 姓名 | 電話 | 桌次備註<br>
-                    <b>分頁 2【打卡紀錄】</b>：紀錄時間 | 課堂名稱 | Token | 姓名 | 動作類型
+                    <b>分頁 2【打卡紀錄】</b>：紀錄時間 | 課堂名稱 | Token | 姓名 | 動作類型 | 遲到狀態 | 缺課時數
                 </div>
-                <p class="text-indigo-600 font-medium">💡 前台會根據目前「課堂名稱」即時檢查學員是否已簽到，並動態統計出席率與名冊篩選。</p>
+                <div class="bg-amber-50 border border-amber-200 p-3 rounded-lg text-amber-800">
+                    <b>遲到判定規則：</b><br>
+                    • 遲到 $\le$ 20 分鐘：記「遲到」1 次，缺課記 0 小時。<br>
+                    • 遲到 > 20 分鐘：記「嚴重遲到(>20m)」，視同缺課 1 小時。
+                </div>
             </div>
             <div class="text-right pt-2">
-                <button onclick="closeScriptModal()" class="px-4 py-2 bg-slate-800 text-white text-xs font-semibold rounded-lg">了解</button>
+                <button onclick="closeScriptModal()" class="px-4 py-2 bg-slate-800 text-white text-xs font-semibold rounded-lg">我知道了</button>
             </div>
         </div>
     </div>
 
     <script>
         /* ============================================================
-           狀態管理與資料定義
+           狀態管理與變數
            ============================================================ */
         const DEFAULT_ATTENDEES = [
             { token: "TICKET-1001", name: "王曉明", phone: "0912-345-678", note: "A桌 01 號 (貴賓)" },
@@ -327,13 +348,13 @@
         ];
 
         let attendees = [];
-        // 紀錄打卡快取：{ "課程名稱_Token": { checkinTime: "HH:mm:ss", lastAction: "簽到" } }
         let checkinRecords = {}; 
         let html5QrCodeScanner = null;
         let isCameraActive = false;
         let isScanningLocked = false;
         let gasApiUrl = localStorage.getItem("gas_checkin_api") || "";
         let currentMode = "簽到";
+        let currentFacingMode = "environment"; // environment (後鏡頭) 或 user (前鏡頭)
 
         // Web Audio 音效產生器
         let audioCtx = null;
@@ -363,7 +384,7 @@
                 osc.start(now);
                 osc.stop(now + 0.3);
             } catch (e) {
-                console.error("Audio failed", e);
+                console.error("Audio error", e);
             }
         }
 
@@ -383,12 +404,12 @@
                 osc.start(now);
                 osc.stop(now + 0.35);
             } catch (e) {
-                console.error("Audio failed", e);
+                console.error("Audio error", e);
             }
         }
 
         /* ============================================================
-           簽到/簽退切換模式
+           切換簽到/簽退模式
            ============================================================ */
         function setCheckMode(mode) {
             currentMode = mode;
@@ -405,7 +426,7 @@
         }
 
         /* ============================================================
-           出席狀態統計與名冊渲染
+           出席統計與名冊渲染
            ============================================================ */
         function getCurrentCourse() {
             const courseEl = document.getElementById("current-course");
@@ -503,7 +524,7 @@
         }
 
         /* ============================================================
-           核銷打卡業務邏輯
+           核銷業務邏輯 (含遲到判定)
            ============================================================ */
         async function processCheckin(token) {
             if (!token || isScanningLocked) return;
@@ -511,6 +532,7 @@
 
             const cleanToken = token.trim();
             const course = getCurrentCourse();
+            const startTime = document.getElementById("course-start-time") ? document.getElementById("course-start-time").value : "09:00";
 
             if (gasApiUrl) {
                 showFeedback("雲端記錄中...", `正在為 ${cleanToken} 辦理【${currentMode}】...`, "info");
@@ -519,34 +541,53 @@
                         action: "checkin",
                         token: cleanToken,
                         course: course,
-                        type: currentMode
+                        type: currentMode,
+                        startTime: startTime
                     });
 
                     const response = await fetch(`${gasApiUrl}?${params.toString()}`);
                     const res = await response.json();
 
                     if (res.success) {
-                        playSuccessSound();
-                        
+                        const att = res.attendee;
+
                         // 更新本地紀錄狀態
                         const key = `${course}_${cleanToken}`;
                         if (!checkinRecords[key]) checkinRecords[key] = {};
                         if (currentMode === "簽到") {
                             checkinRecords[key].isAttended = true;
-                            checkinRecords[key].checkinTime = res.attendee.checkinTime;
+                            checkinRecords[key].checkinTime = att.checkinTime;
                         } else {
-                            checkinRecords[key].checkoutTime = res.attendee.checkinTime;
+                            checkinRecords[key].checkoutTime = att.checkinTime;
                         }
                         checkinRecords[key].lastAction = currentMode;
                         saveRecords();
                         updateStats();
                         renderAttendees();
 
-                        showFeedback(
-                            `${res.attendee.checkType}成功！`, 
-                            `${res.attendee.name} [${res.attendee.courseName}] (${res.attendee.checkinTime})`, 
-                            "success"
-                        );
+                        // 依據遲到狀態提供聲響與提示
+                        if (att.lateStatus === "嚴重遲到(>20m)") {
+                            playWarningSound();
+                            showFeedback(
+                                `簽到完成 (遲到逾20分)`, 
+                                `${att.name} 視同缺課 1 小時 (${att.checkinTime})`, 
+                                "warning"
+                            );
+                        } else if (att.lateStatus === "遲到") {
+                            playWarningSound();
+                            showFeedback(
+                                `簽到完成 (記遲到1次)`, 
+                                `${att.name} 遲到20分內 (${att.checkinTime})`, 
+                                "warning"
+                            );
+                        } else {
+                            playSuccessSound();
+                            showFeedback(
+                                `${att.checkType}成功！`, 
+                                `${att.name} 準時出席 (${att.checkinTime})`, 
+                                "success"
+                            );
+                        }
                     } else {
                         playWarningSound();
                         showFeedback("核銷失敗", res.message || "查無此票券", "error");
@@ -557,7 +598,7 @@
                     showFeedback("連線錯誤", "無法連接至 Google 試算表，請確認 Web App URL", "error");
                 }
             } else {
-                // 本機示範模擬
+                // 本機模擬模式
                 const attendee = attendees.find(a => a.token.toLowerCase() === cleanToken.toLowerCase());
                 if (attendee) {
                     const now = new Date();
@@ -632,8 +673,14 @@
                 container.className = "mt-4 p-4 rounded-xl border border-emerald-300 bg-emerald-50 transition-all";
                 iconWrap.className = "w-10 h-10 rounded-lg bg-emerald-500 text-white flex items-center justify-center";
                 iconWrap.innerHTML = `<i data-lucide="check" class="w-5 h-5"></i>`;
-                badgeEl.innerText = "打卡完成";
+                badgeEl.innerText = "打卡正常";
                 badgeEl.classList.add("bg-emerald-100", "text-emerald-700");
+            } else if (type === "warning") {
+                container.className = "mt-4 p-4 rounded-xl border border-amber-300 bg-amber-50 transition-all";
+                iconWrap.className = "w-10 h-10 rounded-lg bg-amber-500 text-white flex items-center justify-center";
+                iconWrap.innerHTML = `<i data-lucide="alert-triangle" class="w-5 h-5"></i>`;
+                badgeEl.innerText = "遲到紀錄";
+                badgeEl.classList.add("bg-amber-100", "text-amber-700");
             } else if (type === "error") {
                 container.className = "mt-4 p-4 rounded-xl border border-rose-300 bg-rose-50 transition-all";
                 iconWrap.className = "w-10 h-10 rounded-lg bg-rose-500 text-white flex items-center justify-center";
@@ -650,11 +697,33 @@
         }
 
         /* ============================================================
-           相機模組
+           相機模組 (支援前後鏡頭與前鏡像)
            ============================================================ */
+        function switchCameraFacing() {
+            currentFacingMode = (currentFacingMode === "environment") ? "user" : "environment";
+            
+            const facingText = document.getElementById("cam-facing-text");
+            if (facingText) {
+                facingText.innerText = (currentFacingMode === "environment") ? "前鏡頭" : "後鏡頭";
+            }
+
+            if (isCameraActive) {
+                stopCamera();
+                startCamera();
+            }
+        }
+
         function startCamera() {
             const placeholder = document.getElementById("scanner-placeholder");
             const btnText = document.getElementById("cam-btn-text");
+            const readerEl = document.getElementById("reader");
+
+            // 前鏡頭時加入鏡像 CSS
+            if (currentFacingMode === "user") {
+                readerEl.classList.add("mirror-mode");
+            } else {
+                readerEl.classList.remove("mirror-mode");
+            }
 
             if (!html5QrCodeScanner) {
                 html5QrCodeScanner = new Html5Qrcode("reader");
@@ -662,14 +731,14 @@
 
             const config = { fps: 10, qrbox: { width: 220, height: 220 } };
 
-            html5QrCodeScanner.start({ facingMode: "environment" }, config, onScanSuccess)
+            html5QrCodeScanner.start({ facingMode: currentFacingMode }, config, onScanSuccess)
                 .then(() => {
                     isCameraActive = true;
                     placeholder.classList.add("hidden");
                     btnText.innerText = "暫停鏡頭";
                 })
                 .catch(err => {
-                    console.warn("Camera start failed:", err);
+                    console.warn("Camera failed:", err);
                     isCameraActive = false;
                     placeholder.classList.remove("hidden");
                     btnText.innerText = "啟用相機";
@@ -709,7 +778,7 @@
         }
 
         /* ============================================================
-           資料存取與 GAS 連線
+           資料載入與 GAS 同步
            ============================================================ */
         function loadStorage() {
             const savedAttendees = localStorage.getItem("course_checkin_attendees");
