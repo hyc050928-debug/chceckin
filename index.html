@@ -66,7 +66,7 @@
                 </button>
                 <button onclick="openScriptModal()" class="px-3 py-1.5 text-xs sm:text-sm font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg flex items-center gap-1.5 transition">
                     <i data-lucide="code-2" class="w-4 h-4"></i>
-                    <span>後端結構說明</span>
+                    <span>結構說明</span>
                 </button>
             </div>
         </div>
@@ -74,11 +74,11 @@
 
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full space-y-6">
         
-        <!-- 即時出席統計卡片 -->
+        <!-- 即時出席統計卡片 (隨選擇班級動態連動) -->
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
                 <div>
-                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">總報名人數</span>
+                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">本班總人數</span>
                     <p id="stat-total" class="text-2xl font-bold text-slate-800 mt-0.5">0</p>
                 </div>
                 <div class="w-10 h-10 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center">
@@ -123,29 +123,46 @@
             <button onclick="resetDemoData()" class="text-blue-700 underline text-xs hover:text-blue-900 font-medium">重設模擬名單</button>
         </div>
 
-        <!-- 課程、時間與打卡動作控制列 -->
-        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
-            <div class="flex flex-wrap items-center gap-3 w-full md:w-auto">
+        <!-- 控制列：班級選擇、課堂名稱、應到時間、動作切換 -->
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col xl:flex-row gap-4 items-center justify-between">
+            <div class="flex flex-wrap items-center gap-3 w-full xl:w-auto">
+                <!-- 班級切換下拉選單 -->
+                <div class="flex items-center gap-2">
+                    <label for="filter-class" class="text-xs font-bold text-slate-700 whitespace-nowrap flex items-center gap-1">
+                        <i data-lucide="graduation-cap" class="w-4 h-4 text-indigo-600"></i>
+                        目前班別：
+                    </label>
+                    <select id="filter-class" onchange="updateStats(); renderAttendees();" 
+                            class="text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 bg-indigo-50/50 font-bold text-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="中級班">中級班 (1-30號)</option>
+                        <option value="高級班">高級班 (31-66號)</option>
+                        <option value="all">全部學員 (合併統計)</option>
+                    </select>
+                </div>
+
+                <!-- 課堂名稱 -->
                 <div class="flex items-center gap-2">
                     <label for="current-course" class="text-xs font-bold text-slate-700 whitespace-nowrap flex items-center gap-1">
                         <i data-lucide="book-open" class="w-4 h-4 text-indigo-600"></i>
-                        課堂名稱：
+                        課堂：
                     </label>
                     <input id="current-course" type="text" value="第一天上午課" placeholder="課程名稱..." oninput="updateStats(); renderAttendees();"
-                           class="text-sm px-3 py-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none w-40 font-medium bg-slate-50 focus:bg-white transition">
+                           class="text-sm px-3 py-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none w-36 font-medium bg-slate-50 focus:bg-white transition">
                 </div>
 
+                <!-- 應到/應退時間 -->
                 <div class="flex items-center gap-2">
                     <label id="time-input-label" for="course-target-time" class="text-xs font-bold text-slate-700 whitespace-nowrap flex items-center gap-1">
                         <i data-lucide="alarm-clock" class="w-4 h-4 text-amber-600"></i>
                         應到時間：
                     </label>
                     <input id="course-target-time" type="time" value="09:00" 
-                           class="text-sm px-2.5 py-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none font-medium bg-slate-50">
+                           class="text-sm px-2 py-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none font-medium bg-slate-50">
                 </div>
             </div>
             
-            <div class="flex items-center gap-2 w-full md:w-auto justify-end">
+            <!-- 打卡動作切換 -->
+            <div class="flex items-center gap-2 w-full xl:w-auto justify-end">
                 <span class="text-xs font-bold text-slate-700">打卡動作：</span>
                 <div class="inline-flex p-1 bg-slate-100 rounded-xl border border-slate-200">
                     <button id="btn-mode-in" onclick="setCheckMode('簽到')" type="button" class="px-5 py-1.5 text-xs font-bold rounded-lg transition bg-emerald-600 text-white shadow-sm">
@@ -179,7 +196,6 @@
                         </div>
                     </div>
 
-                    <!-- 鏡頭預覽區域 -->
                     <div class="relative bg-slate-900 rounded-xl overflow-hidden aspect-4/3 sm:aspect-16/9 flex items-center justify-center">
                         <div id="reader" class="w-full h-full"></div>
                         <div id="scanner-overlay" class="absolute inset-0 pointer-events-none flex flex-col items-center justify-center">
@@ -195,7 +211,7 @@
                         </div>
                     </div>
 
-                    <!-- 掃描結果回饋卡 -->
+                    <!-- 回饋卡 -->
                     <div id="scan-feedback" class="mt-4 p-4 rounded-xl border border-slate-200 bg-slate-50 transition-all">
                         <div class="flex items-center gap-3">
                             <div id="feedback-icon" class="w-10 h-10 rounded-lg bg-slate-200 text-slate-500 flex items-center justify-center">
@@ -203,7 +219,7 @@
                             </div>
                             <div class="flex-1 min-w-0">
                                 <h4 id="feedback-title" class="text-sm font-bold text-slate-800">等待掃描中...</h4>
-                                <p id="feedback-desc" class="text-xs text-slate-500 truncate">將學員的 QR Code 出示於鏡頭前進行核銷</p>
+                                <p id="feedback-desc" class="text-xs text-slate-500 truncate">將學員名牌上的 QR Code 出示於鏡頭前進行核銷</p>
                             </div>
                             <div id="feedback-badge" class="hidden text-xs font-bold px-2.5 py-1 rounded-full"></div>
                         </div>
@@ -235,7 +251,7 @@
                     <div class="p-4 border-b border-slate-100 flex items-center justify-between">
                         <div>
                             <h3 class="font-bold text-slate-800 text-sm">課程學員簽到名冊</h3>
-                            <p class="text-xs text-slate-400">點擊學員卡片可預覽專屬票券</p>
+                            <p class="text-xs text-slate-400">點擊學員卡片可預覽專屬名牌票券</p>
                         </div>
                         <select id="roster-filter" onchange="renderAttendees()" class="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-slate-50 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500">
                             <option value="all">全部學員</option>
@@ -249,7 +265,7 @@
                     </div>
 
                     <div class="p-3 border-t border-slate-100 bg-slate-50/50 rounded-b-2xl text-center">
-                        <span class="text-xs text-slate-400">簽到資料依「目前課堂」動態計算統計</span>
+                        <span class="text-xs text-slate-400">名冊顯示範圍由上方「目前班別」即時控制</span>
                     </div>
                 </div>
             </div>
@@ -267,7 +283,10 @@
             </div>
             
             <div class="bg-indigo-50/60 p-4 rounded-xl space-y-1">
-                <p id="modal-ticket-name" class="font-bold text-lg text-slate-900">陳大明</p>
+                <div class="flex items-center justify-center gap-2">
+                    <p id="modal-ticket-name" class="font-bold text-lg text-slate-900">陳大明</p>
+                    <span id="modal-ticket-class" class="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-md font-bold">中級班</span>
+                </div>
                 <p id="modal-ticket-phone" class="text-xs text-slate-500">0912-345-678</p>
                 <p id="modal-ticket-seat" class="text-xs font-medium text-indigo-600">座位 / 組別：A 桌 03 號</p>
             </div>
@@ -291,7 +310,7 @@
                 <i data-lucide="settings-2" class="w-5 h-5 text-indigo-600"></i>
                 Google Apps Script 連線設定
             </h3>
-            <p class="text-xs text-slate-500">請貼上部署為「所有人 (Anyone)」存取的 Web App API 網址。若清空則切換回本地模擬模式。</p>
+            <p class="text-xs text-slate-500">請貼上部署為「所有人 (Anyone)」存取的 Web App API 網址。</p>
             
             <div class="space-y-1">
                 <label class="text-xs font-medium text-slate-700">Web App API Endpoint</label>
@@ -309,22 +328,16 @@
     <div id="script-modal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 hidden">
         <div class="bg-white rounded-2xl shadow-xl max-w-xl w-full p-6 space-y-4">
             <div class="flex justify-between items-center border-b pb-3">
-                <h3 class="font-bold text-slate-800 text-base">規則與結構說明</h3>
+                <h3 class="font-bold text-slate-800 text-base">試算表結構說明</h3>
                 <button onclick="closeScriptModal()" class="text-slate-400 hover:text-slate-600">
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
             </div>
             <div class="text-xs text-slate-600 space-y-3">
-                <p>Google 試算表欄位結構需求：</p>
+                <p>請確認【學員名冊】分頁已加入第 5 欄「班級」：</p>
                 <div class="p-3 bg-slate-100 rounded-lg font-mono">
-                    <b>分頁 1【學員名冊】</b>：Token | 姓名 | 電話 | 桌次備註<br>
+                    <b>分頁 1【學員名冊】</b>：Token | 姓名 | 電話 | 座位備註 | 班級<br>
                     <b>分頁 2【打卡紀錄】</b>：紀錄時間 | 課堂名稱 | Token | 姓名 | 動作類型 | 違規狀態 | 直接缺課時數 | 累計次數
-                </div>
-                <div class="bg-amber-50 border border-amber-200 p-3 rounded-lg text-amber-800 leading-relaxed">
-                    <b>遲到／早退推算標準：</b><br>
-                    • 遲到／早退 $\le$ 20 分鐘：記「違規次數 1 次」，直接缺課 0 小時（同科目累計 3 次視同缺課 1 小時）。<br>
-                    • 超過 20 分鐘但在 1 小時以內：直接視為「缺課 1 小時」，違規 0 次。<br>
-                    • 延遲 $N$ 小時又 $\le$ 20 分鐘：記「缺課 $N$ 小時」加上「違規次數 1 次」，以此類推。
                 </div>
             </div>
             <div class="text-right pt-2">
@@ -338,11 +351,10 @@
            狀態管理與變數
            ============================================================ */
         const DEFAULT_ATTENDEES = [
-            { token: "TICKET-1001", name: "王曉明", phone: "0912-345-678", note: "A桌 01 號 (貴賓)" },
-            { token: "TICKET-1002", name: "李雅婷", phone: "0923-456-789", note: "B桌 04 號" },
-            { token: "TICKET-1003", name: "張俊傑", phone: "0934-567-890", note: "C桌 08 號" },
-            { token: "TICKET-1004", name: "陳冠宇", phone: "0945-678-901", note: "D桌 12 號" },
-            { token: "TICKET-1005", name: "林佩珊", phone: "0956-789-012", note: "E桌 16 號 (素食)" }
+            { token: "TICKET-1001", name: "王曉明", phone: "0912-345-678", note: "1號", classGroup: "中級班" },
+            { token: "TICKET-1002", name: "李雅婷", phone: "0923-456-789", note: "2號", classGroup: "中級班" },
+            { token: "TICKET-1031", name: "陳冠宇", phone: "0945-678-901", note: "31號", classGroup: "高級班" },
+            { token: "TICKET-1032", name: "林佩珊", phone: "0956-789-012", note: "32號", classGroup: "高級班" }
         ];
 
         let attendees = [];
@@ -433,19 +445,26 @@
         }
 
         /* ============================================================
-           出席統計與名冊渲染
+           依選擇班級過濾學員
            ============================================================ */
         function getCurrentCourse() {
             const courseEl = document.getElementById("current-course");
             return (courseEl && courseEl.value.trim()) ? courseEl.value.trim() : "第一天上午課";
         }
 
+        function getSelectedClassAttendees() {
+            const classFilter = document.getElementById("filter-class").value;
+            if (classFilter === "all") return attendees;
+            return attendees.filter(a => a.classGroup === classFilter);
+        }
+
         function updateStats() {
             const currentCourse = getCurrentCourse();
-            const total = attendees.length;
+            const classAttendees = getSelectedClassAttendees();
+            const total = classAttendees.length;
             
             let attendedCount = 0;
-            attendees.forEach(a => {
+            classAttendees.forEach(a => {
                 const key = `${currentCourse}_${a.token}`;
                 if (checkinRecords[key] && checkinRecords[key].isAttended) {
                     attendedCount++;
@@ -463,16 +482,17 @@
 
         function renderAttendees() {
             const listEl = document.getElementById("attendee-list");
-            const filter = document.getElementById("roster-filter").value;
+            const statusFilter = document.getElementById("roster-filter").value;
             const currentCourse = getCurrentCourse();
+            const classAttendees = getSelectedClassAttendees();
             listEl.innerHTML = "";
 
-            const filtered = attendees.filter(item => {
+            const filtered = classAttendees.filter(item => {
                 const key = `${currentCourse}_${item.token}`;
                 const isAttended = checkinRecords[key] && checkinRecords[key].isAttended;
                 
-                if (filter === "attended") return isAttended;
-                if (filter === "pending") return !isAttended;
+                if (statusFilter === "attended") return isAttended;
+                if (statusFilter === "pending") return !isAttended;
                 return true;
             });
 
@@ -480,7 +500,7 @@
                 listEl.innerHTML = `
                     <div class="py-12 text-center text-slate-400 text-xs">
                         <i data-lucide="inbox" class="w-8 h-8 mx-auto mb-2 opacity-50"></i>
-                        目前分類無學員資料
+                        目前班級分類下無學員資料
                     </div>
                 `;
                 lucide.createIcons();
@@ -504,7 +524,7 @@
                         <div class="truncate">
                             <div class="flex items-center gap-1.5">
                                 <span class="text-sm font-semibold text-slate-800">${item.name}</span>
-                                <span class="text-[11px] text-slate-400">(${item.phone.slice(-4)})</span>
+                                <span class="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-medium">${item.classGroup || '未分班'}</span>
                             </div>
                             <p class="text-[11px] text-slate-500 truncate">${item.note}</p>
                         </div>
@@ -580,7 +600,6 @@
                         updateStats();
                         renderAttendees();
 
-                        // 判斷違規狀態文字
                         if (att.statusText !== "正常") {
                             playWarningSound();
                             var penaltyDetail = "";
@@ -594,14 +613,14 @@
 
                             showFeedback(
                                 `${att.checkType}完成 (${att.statusText})`, 
-                                `${att.name}：${penaltyDetail} (${att.checkinTime})`, 
+                                `${att.name}【${att.classGroup || ''}】：${penaltyDetail} (${att.checkinTime})`, 
                                 "warning"
                             );
                         } else {
                             playSuccessSound();
                             showFeedback(
                                 `${att.checkType}成功！`, 
-                                `${att.name} 準時打卡 (${att.checkinTime})`, 
+                                `${att.name}【${att.classGroup || ''}】 準時打卡 (${att.checkinTime})`, 
                                 "success"
                             );
                         }
@@ -647,7 +666,7 @@
                         renderAttendees();
 
                         playSuccessSound();
-                        showFeedback(`${currentMode}成功 (模擬)`, `${attendee.name} [${course}] (${timeStr})`, "success");
+                        showFeedback(`${currentMode}成功 (模擬)`, `${attendee.name}【${attendee.classGroup}】 (${timeStr})`, "success");
                     }
                 } else {
                     playWarningSound();
@@ -727,7 +746,7 @@
         }
 
         /* ============================================================
-           相機模組 (前後鏡頭切換與鏡像)
+           相機模組
            ============================================================ */
         function switchCameraFacing() {
             currentFacingMode = (currentFacingMode === "environment") ? "user" : "environment";
@@ -807,7 +826,7 @@
         }
 
         /* ============================================================
-           資料載入與 GAS 同步
+           資料載入與同步
            ============================================================ */
         function loadStorage() {
             const savedAttendees = localStorage.getItem("course_checkin_attendees");
@@ -838,7 +857,7 @@
             saveRecords();
             updateStats();
             renderAttendees();
-            showFeedback("已重設名單", "名冊與打卡狀態已還原為預設模擬資料", "info");
+            showFeedback("已重設名單", "名冊與打卡狀態已還原", "info");
         }
 
         async function syncWithGAS() {
@@ -886,6 +905,7 @@
             document.getElementById("modal-ticket-name").innerText = attendee.name;
             document.getElementById("modal-ticket-phone").innerText = attendee.phone;
             document.getElementById("modal-ticket-seat").innerText = attendee.note;
+            document.getElementById("modal-ticket-class").innerText = attendee.classGroup || "未分班";
 
             const qrContainer = document.getElementById("qrcode-container");
             qrContainer.innerHTML = "";
