@@ -40,7 +40,6 @@
             border-radius: 0.75rem;
             width: 100% !important;
         }
-        /* 前置自拍鏡頭時水平鏡像翻轉 */
         #reader.mirror-mode video {
             transform: scaleX(-1);
         }
@@ -75,7 +74,7 @@
 
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full space-y-6">
         
-        <!-- 出席即時統計卡片 -->
+        <!-- 即時出席統計卡片 -->
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
                 <div>
@@ -132,16 +131,16 @@
                         <i data-lucide="book-open" class="w-4 h-4 text-indigo-600"></i>
                         課堂名稱：
                     </label>
-                    <input id="current-course" type="text" value="第一天上午課" placeholder="課程或場次名稱..." oninput="updateStats(); renderAttendees();"
-                           class="text-sm px-3 py-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none w-44 font-medium bg-slate-50 focus:bg-white transition">
+                    <input id="current-course" type="text" value="第一天上午課" placeholder="課程名稱..." oninput="updateStats(); renderAttendees();"
+                           class="text-sm px-3 py-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none w-40 font-medium bg-slate-50 focus:bg-white transition">
                 </div>
 
                 <div class="flex items-center gap-2">
-                    <label for="course-start-time" class="text-xs font-bold text-slate-700 whitespace-nowrap flex items-center gap-1">
+                    <label id="time-input-label" for="course-target-time" class="text-xs font-bold text-slate-700 whitespace-nowrap flex items-center gap-1">
                         <i data-lucide="alarm-clock" class="w-4 h-4 text-amber-600"></i>
                         應到時間：
                     </label>
-                    <input id="course-start-time" type="time" value="09:00" 
+                    <input id="course-target-time" type="time" value="09:00" 
                            class="text-sm px-2.5 py-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none font-medium bg-slate-50">
                 </div>
             </div>
@@ -169,12 +168,10 @@
                             <h2 class="font-bold text-slate-800 text-base">相機 QR Code 掃描器</h2>
                         </div>
                         <div class="flex items-center gap-2">
-                            <!-- 前後鏡頭切換鍵 -->
                             <button id="cam-flip-btn" onclick="switchCameraFacing()" type="button" class="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition flex items-center gap-1">
                                 <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
                                 <span id="cam-facing-text">前鏡頭</span>
                             </button>
-                            <!-- 啟閉鏡頭鍵 -->
                             <button id="cam-toggle-btn" onclick="toggleCamera()" type="button" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition flex items-center gap-1">
                                 <i data-lucide="video" class="w-3.5 h-3.5"></i>
                                 <span id="cam-btn-text">關閉相機</span>
@@ -232,7 +229,7 @@
                 </div>
             </div>
 
-            <!-- 右側：學員名冊與即時狀態篩選 (5 欄) -->
+            <!-- 右側：學員名冊與狀態篩選 (5 欄) -->
             <div class="lg:col-span-5 space-y-6">
                 <div class="bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col h-[560px]">
                     <div class="p-4 border-b border-slate-100 flex items-center justify-between">
@@ -312,22 +309,22 @@
     <div id="script-modal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 hidden">
         <div class="bg-white rounded-2xl shadow-xl max-w-xl w-full p-6 space-y-4">
             <div class="flex justify-between items-center border-b pb-3">
-                <h3 class="font-bold text-slate-800 text-base">Google 試算表結構與規則說明</h3>
+                <h3 class="font-bold text-slate-800 text-base">規則與結構說明</h3>
                 <button onclick="closeScriptModal()" class="text-slate-400 hover:text-slate-600">
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
             </div>
             <div class="text-xs text-slate-600 space-y-3">
-                <p>請確認試算表具備以下兩個工作表分頁：</p>
+                <p>Google 試算表欄位結構需求：</p>
                 <div class="p-3 bg-slate-100 rounded-lg font-mono">
                     <b>分頁 1【學員名冊】</b>：Token | 姓名 | 電話 | 桌次備註<br>
-                    <b>分頁 2【打卡紀錄】</b>：紀錄時間 | 課堂名稱 | Token | 姓名 | 動作類型 | 遲到狀態 | 缺課時數
+                    <b>分頁 2【打卡紀錄】</b>：紀錄時間 | 課堂名稱 | Token | 姓名 | 動作類型 | 違規狀態 | 直接缺課時數 | 累計次數
                 </div>
-                <div class="bg-amber-50 border border-amber-200 p-3 rounded-lg text-amber-800">
-                    <b>遲到判定規則：</b><br>
-                    • 遲到 $\le$ 20 分鐘：記「遲到」1 次，缺課記 0 小時。<br>
-                    • 遲到 > 20 分鐘：記「嚴重遲到(>20m)」，視同缺課 1 小時。<br>
-                    • <b>防重複保護</b>：短時間內重複掃描會直接阻擋，且以第一次簽到時間為準。
+                <div class="bg-amber-50 border border-amber-200 p-3 rounded-lg text-amber-800 leading-relaxed">
+                    <b>遲到／早退推算標準：</b><br>
+                    • 遲到／早退 $\le$ 20 分鐘：記「違規次數 1 次」，直接缺課 0 小時（同科目累計 3 次視同缺課 1 小時）。<br>
+                    • 超過 20 分鐘但在 1 小時以內：直接視為「缺課 1 小時」，違規 0 次。<br>
+                    • 延遲 $N$ 小時又 $\le$ 20 分鐘：記「缺課 $N$ 小時」加上「違規次數 1 次」，以此類推。
                 </div>
             </div>
             <div class="text-right pt-2">
@@ -355,13 +352,11 @@
         let isScanningLocked = false;
         let gasApiUrl = localStorage.getItem("gas_checkin_api") || "";
         let currentMode = "簽到";
-        let currentFacingMode = "environment"; // environment (後鏡頭) 或 user (前鏡頭)
+        let currentFacingMode = "environment";
 
-        // 防重複防抖紀錄
         let lastScannedToken = "";
         let lastScannedTime = 0;
 
-        // Web Audio 音效產生器
         let audioCtx = null;
         function getAudioContext() {
             if (!audioCtx) {
@@ -420,14 +415,21 @@
             currentMode = mode;
             const btnIn = document.getElementById("btn-mode-in");
             const btnOut = document.getElementById("btn-mode-out");
+            const timeLabel = document.getElementById("time-input-label");
+            const timeInput = document.getElementById("course-target-time");
 
             if (mode === "簽到") {
                 btnIn.className = "px-5 py-1.5 text-xs font-bold rounded-lg transition bg-emerald-600 text-white shadow-sm";
                 btnOut.className = "px-5 py-1.5 text-xs font-bold rounded-lg transition text-slate-600 hover:text-slate-900";
+                timeLabel.innerHTML = `<i data-lucide="alarm-clock" class="w-4 h-4 text-amber-600"></i> 應到時間：`;
+                if (timeInput.value === "17:00") timeInput.value = "09:00";
             } else {
                 btnOut.className = "px-5 py-1.5 text-xs font-bold rounded-lg transition bg-amber-600 text-white shadow-sm";
                 btnIn.className = "px-5 py-1.5 text-xs font-bold rounded-lg transition text-slate-600 hover:text-slate-900";
+                timeLabel.innerHTML = `<i data-lucide="alarm-clock" class="w-4 h-4 text-amber-600"></i> 應退時間：`;
+                if (timeInput.value === "09:00") timeInput.value = "17:00";
             }
+            lucide.createIcons();
         }
 
         /* ============================================================
@@ -529,7 +531,7 @@
         }
 
         /* ============================================================
-           核銷業務邏輯 (含防短時間重刷與遲到判定)
+           核銷打卡業務邏輯
            ============================================================ */
         async function processCheckin(token) {
             if (!token || isScanningLocked) return;
@@ -537,7 +539,6 @@
             const cleanToken = token.trim();
             const nowTime = Date.now();
 
-            // 前端防抖：8 秒內持續對準同一個 QR Code，直接略過不發請求
             if (cleanToken === lastScannedToken && (nowTime - lastScannedTime) < 8000) {
                 return;
             }
@@ -547,7 +548,7 @@
             lastScannedTime = nowTime;
 
             const course = getCurrentCourse();
-            const startTime = document.getElementById("course-start-time") ? document.getElementById("course-start-time").value : "09:00";
+            const expectedTime = document.getElementById("course-target-time") ? document.getElementById("course-target-time").value : "";
 
             if (gasApiUrl) {
                 showFeedback("雲端記錄中...", `正在為 ${cleanToken} 辦理【${currentMode}】...`, "info");
@@ -557,7 +558,7 @@
                         token: cleanToken,
                         course: course,
                         type: currentMode,
-                        startTime: startTime
+                        expectedTime: expectedTime
                     });
 
                     const response = await fetch(`${gasApiUrl}?${params.toString()}`);
@@ -566,7 +567,6 @@
                     if (res.success) {
                         const att = res.attendee;
 
-                        // 更新本地紀錄狀態
                         const key = `${course}_${cleanToken}`;
                         if (!checkinRecords[key]) checkinRecords[key] = {};
                         if (currentMode === "簽到") {
@@ -580,30 +580,32 @@
                         updateStats();
                         renderAttendees();
 
-                        if (att.lateStatus === "嚴重遲到(>20m)") {
+                        // 判斷違規狀態文字
+                        if (att.statusText !== "正常") {
                             playWarningSound();
+                            var penaltyDetail = "";
+                            if (att.directAbsentHours > 0 && att.penaltyCount > 0) {
+                                penaltyDetail = `缺課 ${att.directAbsentHours} 小時 + 記違規 1 次`;
+                            } else if (att.directAbsentHours > 0) {
+                                penaltyDetail = `視同缺課 ${att.directAbsentHours} 小時`;
+                            } else {
+                                penaltyDetail = `記違規 1 次 (累計3次缺課1小時)`;
+                            }
+
                             showFeedback(
-                                `簽到完成 (遲到逾20分)`, 
-                                `${att.name} 視同缺課 1 小時 (${att.checkinTime})`, 
-                                "warning"
-                            );
-                        } else if (att.lateStatus === "遲到") {
-                            playWarningSound();
-                            showFeedback(
-                                `簽到完成 (記遲到1次)`, 
-                                `${att.name} 遲到20分內 (${att.checkinTime})`, 
+                                `${att.checkType}完成 (${att.statusText})`, 
+                                `${att.name}：${penaltyDetail} (${att.checkinTime})`, 
                                 "warning"
                             );
                         } else {
                             playSuccessSound();
                             showFeedback(
                                 `${att.checkType}成功！`, 
-                                `${att.name} 準時出席 (${att.checkinTime})`, 
+                                `${att.name} 準時打卡 (${att.checkinTime})`, 
                                 "success"
                             );
                         }
                     } else if (res.alreadyChecked) {
-                        // 後端回傳重複打卡警告（維持第一次時間，不覆寫）
                         playWarningSound();
                         showFeedback(
                             `重複${currentMode}！`, 
@@ -620,7 +622,7 @@
                     showFeedback("連線錯誤", "無法連接至 Google 試算表，請確認 Web App URL", "error");
                 }
             } else {
-                // 本機模擬模式
+                // 本機模擬
                 const attendee = attendees.find(a => a.token.toLowerCase() === cleanToken.toLowerCase());
                 if (attendee) {
                     const key = `${course}_${attendee.token}`;
@@ -653,7 +655,6 @@
                 }
             }
 
-            // 掃描辨識後冷卻 3 秒
             setTimeout(() => {
                 isScanningLocked = false;
             }, 3000);
@@ -708,7 +709,7 @@
                 container.className = "mt-4 p-4 rounded-xl border border-amber-300 bg-amber-50 transition-all";
                 iconWrap.className = "w-10 h-10 rounded-lg bg-amber-500 text-white flex items-center justify-center";
                 iconWrap.innerHTML = `<i data-lucide="alert-triangle" class="w-5 h-5"></i>`;
-                badgeEl.innerText = "遲到 / 重複";
+                badgeEl.innerText = "出勤異常 / 次數累計";
                 badgeEl.classList.add("bg-amber-100", "text-amber-700");
             } else if (type === "error") {
                 container.className = "mt-4 p-4 rounded-xl border border-rose-300 bg-rose-50 transition-all";
@@ -726,7 +727,7 @@
         }
 
         /* ============================================================
-           相機模組 (支援前後鏡頭與前鏡像)
+           相機模組 (前後鏡頭切換與鏡像)
            ============================================================ */
         function switchCameraFacing() {
             currentFacingMode = (currentFacingMode === "environment") ? "user" : "environment";
@@ -922,7 +923,7 @@
         }
 
         /* ============================================================
-           系統啟動進入點
+           系統啟動
            ============================================================ */
         function initApp() {
             lucide.createIcons();
