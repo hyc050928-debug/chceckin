@@ -135,7 +135,7 @@
                             class="text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 bg-indigo-50/50 font-bold text-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                         <option value="中級班">中級班 (1-30號)</option>
                         <option value="高級班">高級班 (31-66號)</option>
-                        <option value="all">全部學員 (合併統計)</option>
+                        <option value="all">全部學員 (不限班別)</option>
                     </select>
                 </div>
 
@@ -222,7 +222,7 @@
                     </div>
                 </div>
 
-                <!-- 手動備用搜尋 (修復問題 1：嚴格限制只在當前班別搜尋) -->
+                <!-- 手動備用搜尋 -->
                 <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
                     <div class="flex items-center justify-between">
                         <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
@@ -333,7 +333,7 @@
                 <p>請確認【學員名冊】分頁已加入第 5 欄「班級」：</p>
                 <div class="p-3 bg-slate-100 rounded-lg font-mono">
                     <b>分頁 1【學員名冊】</b>：Token | 姓名 | 電話 | 座位備註 | 班級<br>
-                    <b>分頁 2【打卡紀錄】</b>：紀錄時間 | 課堂名稱 | Token | 姓名 | 動作類型 | 違規狀態 | 直接缺課時數 | 累計次數
+                    <b>分頁 2【打卡紀錄】</b>：紀錄時間 | 課堂名稱 | Token | 姓名 | 動作類型 | 違規狀態 | 直接缺課時數 | 累計次數 | 班別
                 </div>
             </div>
             <div class="text-right pt-2">
@@ -357,7 +357,7 @@
         let checkinRecords = {}; 
         let html5QrCodeScanner = null;
         let isCameraActive = false;
-        let isScanningLocked = false;
+        let isScanningLocked = false; // 前端請求中的網絡鎖
         let gasApiUrl = localStorage.getItem("gas_checkin_api") || "";
         let currentMode = "簽到"; // "簽到" 或 "簽退"
         let currentFacingMode = "environment";
@@ -417,7 +417,7 @@
         }
 
         /* ============================================================
-           切換簽到/簽退模式 (修復問題 2：動態更換卡片標題與樣式)
+           切換簽到/簽退模式
            ============================================================ */
         function setCheckMode(mode) {
             currentMode = mode;
@@ -460,14 +460,17 @@
                 iconEl.className = "w-10 h-10 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center";
             }
 
-            // 更新儀表板統計與名冊狀態
+            // 重設掃描記憶體
+            lastScannedToken = "";
+            lastScannedTime = 0;
+
             updateStats();
             renderAttendees();
             lucide.createIcons();
         }
 
         /* ============================================================
-           依選擇班級過濾學員 (修復問題 1 & 2)
+           班級學員篩選與統計
            ============================================================ */
         function getCurrentCourse() {
             const courseEl = document.getElementById("current-course");
@@ -480,7 +483,6 @@
             return attendees.filter(a => a.classGroup === classFilter);
         }
 
-        // 修復問題 2：根據目前是「簽到」還是「簽退」，精準統計已完成人數
         function updateStats() {
             const currentCourse = getCurrentCourse();
             const classAttendees = getSelectedClassAttendees();
@@ -594,23 +596,62 @@
         }
 
         /* ============================================================
-           核銷打卡業務邏輯
+           核銷打卡業務邏輯 (修復跨班誤刷與重複打卡)
            ============================================================ */
         async function processCheckin(token) {
-            if (!token || isScanningLocked) return;
+            if (!token) return;
 
             const cleanToken = token.trim();
             const nowTime = Date.now();
+            const currentSelectedClass = document.getElementById("filter-class").value;
+            const course = getCurrentCourse();
 
+            // 1. 防重複刷卡防線 A：冷卻時間控制 (同一 Token 在 8 秒內不重複觸發)
             if (cleanToken === lastScannedToken && (nowTime - lastScannedTime) < 8000) {
                 return;
             }
 
+            // 2. 防跨班刷卡前端防線：檢查學員是否屬於當前選擇的班級
+            const targetAttendee = attendees.find(a => a.token.toLowerCase() === cleanToken.toLowerCase());
+            if (targetAttendee) {
+                if (currentSelectedClass !== "all" && targetAttendee.classGroup !== currentSelectedClass) {
+                    playWarningSound();
+                    showFeedback(
+                        "跨班刷卡拒絕！", 
+                        `學員「${targetAttendee.name}」屬於【${targetAttendee.classGroup}】，目前系統限定【${currentSelectedClass}】`, 
+                        "error"
+                    );
+                    lastScannedToken = cleanToken;
+                    lastScannedTime = nowTime;
+                    return;
+                }
+            }
+
+            // 3. 防重複刷卡防線 B：本機紀錄即時檢查 (避免重複對後端發送請求)
+            const recordKey = `${course}_${cleanToken}`;
+            const existingRecord = checkinRecords[recordKey];
+            const isAlreadyDone = existingRecord && (
+                (currentMode === "簽到" && existingRecord.isAttended) ||
+                (currentMode === "簽退" && existingRecord.isLeave)
+            );
+
+            if (isAlreadyDone) {
+                playWarningSound();
+                const prevTime = currentMode === "簽到" ? existingRecord.checkinTime : existingRecord.checkoutTime;
+                const attendeeName = targetAttendee ? targetAttendee.name : cleanToken;
+                showFeedback(`重複${currentMode}！`, `${attendeeName} 已於 ${prevTime} 完成過${currentMode}`, "warning");
+                
+                lastScannedToken = cleanToken;
+                lastScannedTime = nowTime;
+                return;
+            }
+
+            // 4. 網絡鎖定 (若正在處理請求中，則暫停新輸入)
+            if (isScanningLocked) return;
             isScanningLocked = true;
             lastScannedToken = cleanToken;
             lastScannedTime = nowTime;
 
-            const course = getCurrentCourse();
             const expectedTime = document.getElementById("course-target-time") ? document.getElementById("course-target-time").value : "";
 
             if (gasApiUrl) {
@@ -621,7 +662,8 @@
                         token: cleanToken,
                         course: course,
                         type: currentMode,
-                        expectedTime: expectedTime
+                        expectedTime: expectedTime,
+                        currentClass: currentSelectedClass // 前端傳送當前限定班別供後端驗證
                     });
 
                     const response = await fetch(`${gasApiUrl}?${params.toString()}`);
@@ -630,16 +672,15 @@
                     if (res.success) {
                         const att = res.attendee;
 
-                        const key = `${course}_${cleanToken}`;
-                        if (!checkinRecords[key]) checkinRecords[key] = {};
+                        if (!checkinRecords[recordKey]) checkinRecords[recordKey] = {};
                         if (currentMode === "簽到") {
-                            checkinRecords[key].isAttended = true;
-                            checkinRecords[key].checkinTime = att.checkinTime;
+                            checkinRecords[recordKey].isAttended = true;
+                            checkinRecords[recordKey].checkinTime = att.checkinTime;
                         } else {
-                            checkinRecords[key].isLeave = true;
-                            checkinRecords[key].checkoutTime = att.checkinTime;
+                            checkinRecords[recordKey].isLeave = true;
+                            checkinRecords[recordKey].checkoutTime = att.checkinTime;
                         }
-                        checkinRecords[key].lastAction = currentMode;
+                        checkinRecords[recordKey].lastAction = currentMode;
                         saveRecords();
                         updateStats();
                         renderAttendees();
@@ -652,7 +693,7 @@
                             } else if (att.directAbsentHours > 0) {
                                 penaltyDetail = `視同缺課 ${att.directAbsentHours} 小時`;
                             } else {
-                                penaltyDetail = `記違規 1 次 (累計3次缺課1小時)`;
+                                penaltyDetail = `記違規 1 次`;
                             }
 
                             showFeedback(
@@ -672,9 +713,19 @@
                         playWarningSound();
                         showFeedback(
                             `重複${currentMode}！`, 
-                            `${res.attendee.name} ${res.message}`, 
+                            `${res.attendee ? res.attendee.name : ''} ${res.message}`, 
                             "warning"
                         );
+                        // 後端回覆重複，同步寫入本機防護
+                        if (!checkinRecords[recordKey]) checkinRecords[recordKey] = {};
+                        if (currentMode === "簽到") checkinRecords[recordKey].isAttended = true;
+                        if (currentMode === "簽退") checkinRecords[recordKey].isLeave = true;
+                        saveRecords();
+                        updateStats();
+                        renderAttendees();
+                    } else if (res.isCrossClass) {
+                        playWarningSound();
+                        showFeedback("跨班拒絕", res.message, "error");
                     } else {
                         playWarningSound();
                         showFeedback("核銷失敗", res.message || "查無此票券", "error");
@@ -683,48 +734,36 @@
                     console.error(err);
                     playWarningSound();
                     showFeedback("連線錯誤", "無法連接至 Google 試算表，請確認 Web App URL", "error");
+                } finally {
+                    isScanningLocked = false;
                 }
             } else {
-                // 本機模擬
-                const attendee = attendees.find(a => a.token.toLowerCase() === cleanToken.toLowerCase());
-                if (attendee) {
-                    const key = `${course}_${attendee.token}`;
-                    const isAlreadyDone = (currentMode === "簽到" && checkinRecords[key]?.isAttended) || 
-                                          (currentMode === "簽退" && checkinRecords[key]?.isLeave);
-
-                    if (isAlreadyDone) {
-                        playWarningSound();
-                        const prevTime = currentMode === "簽到" ? checkinRecords[key].checkinTime : checkinRecords[key].checkoutTime;
-                        showFeedback(`重複${currentMode}！`, `${attendee.name} 已於 ${prevTime} 完成過`, "warning");
+                // 本機模擬環境
+                if (targetAttendee) {
+                    const now = new Date();
+                    const timeStr = Utilities_formatTime(now);
+                    if (!checkinRecords[recordKey]) checkinRecords[recordKey] = {};
+                    
+                    if (currentMode === "簽到") {
+                        checkinRecords[recordKey].isAttended = true;
+                        checkinRecords[recordKey].checkinTime = timeStr;
                     } else {
-                        const now = new Date();
-                        const timeStr = Utilities_formatTime(now);
-                        if (!checkinRecords[key]) checkinRecords[key] = {};
-                        
-                        if (currentMode === "簽到") {
-                            checkinRecords[key].isAttended = true;
-                            checkinRecords[key].checkinTime = timeStr;
-                        } else {
-                            checkinRecords[key].isLeave = true;
-                            checkinRecords[key].checkoutTime = timeStr;
-                        }
-                        checkinRecords[key].lastAction = currentMode;
-                        saveRecords();
-                        updateStats();
-                        renderAttendees();
-
-                        playSuccessSound();
-                        showFeedback(`${currentMode}成功 (模擬)`, `${attendee.name}【${attendee.classGroup}】 (${timeStr})`, "success");
+                        checkinRecords[recordKey].isLeave = true;
+                        checkinRecords[recordKey].checkoutTime = timeStr;
                     }
+                    checkinRecords[recordKey].lastAction = currentMode;
+                    saveRecords();
+                    updateStats();
+                    renderAttendees();
+
+                    playSuccessSound();
+                    showFeedback(`${currentMode}成功 (模擬)`, `${targetAttendee.name}【${targetAttendee.classGroup}】 (${timeStr})`, "success");
                 } else {
                     playWarningSound();
                     showFeedback("無效憑證！", `票券碼 [${cleanToken}] 不在名冊中`, "error");
                 }
-            }
-
-            setTimeout(() => {
                 isScanningLocked = false;
-            }, 3000);
+            }
         }
 
         function Utilities_formatTime(d) {
@@ -736,13 +775,12 @@
         }
 
         /* ============================================================
-           手動搜尋 (修復問題 1：加入班別過濾機制)
+           手動搜尋核銷
            ============================================================ */
         function executeManualSearch() {
             const query = document.getElementById("manual-query").value.trim().toLowerCase();
             if (!query) return;
 
-            // 嚴格限制：僅在目前選取的班級範圍內尋找學員
             const currentScopeAttendees = getSelectedClassAttendees();
             const currentClassName = document.getElementById("filter-class").value;
 
@@ -757,7 +795,6 @@
                 document.getElementById("manual-query").value = "";
             } else {
                 playWarningSound();
-                // 檢查是否其實是另一個班級的學員，給予友善提示
                 const otherMatch = attendees.find(a => 
                     a.name.toLowerCase().includes(query) ||
                     (a.phone && a.phone.replace(/[^0-9]/g, '').includes(query)) ||
@@ -765,7 +802,7 @@
                 );
 
                 if (otherMatch) {
-                    showFeedback("搜尋跨班警示", `學員「${otherMatch.name}」屬於【${otherMatch.classGroup}】，請先切換班別再打卡！`, "error");
+                    showFeedback("跨班搜尋警示", `學員「${otherMatch.name}」屬於【${otherMatch.classGroup}】，目前限定為【${currentClassName}】！`, "error");
                 } else {
                     showFeedback("找不到學員", `在【${currentClassName}】查無符合「${query}」的資料`, "error");
                 }
@@ -788,19 +825,19 @@
                 container.className = "mt-4 p-4 rounded-xl border border-emerald-300 bg-emerald-50 transition-all";
                 iconWrap.className = "w-10 h-10 rounded-lg bg-emerald-500 text-white flex items-center justify-center";
                 iconWrap.innerHTML = `<i data-lucide="check" class="w-5 h-5"></i>`;
-                badgeEl.innerText = "打卡正常";
+                badgeEl.innerText = "打卡成功";
                 badgeEl.classList.add("bg-emerald-100", "text-emerald-700");
             } else if (type === "warning") {
                 container.className = "mt-4 p-4 rounded-xl border border-amber-300 bg-amber-50 transition-all";
                 iconWrap.className = "w-10 h-10 rounded-lg bg-amber-500 text-white flex items-center justify-center";
                 iconWrap.innerHTML = `<i data-lucide="alert-triangle" class="w-5 h-5"></i>`;
-                badgeEl.innerText = "出勤異常 / 次數累計";
+                badgeEl.innerText = "重複/出勤警示";
                 badgeEl.classList.add("bg-amber-100", "text-amber-700");
             } else if (type === "error") {
                 container.className = "mt-4 p-4 rounded-xl border border-rose-300 bg-rose-50 transition-all";
                 iconWrap.className = "w-10 h-10 rounded-lg bg-rose-500 text-white flex items-center justify-center";
                 iconWrap.innerHTML = `<i data-lucide="x" class="w-5 h-5"></i>`;
-                badgeEl.innerText = "異常警示";
+                badgeEl.innerText = "跨班/無效拒絕";
                 badgeEl.classList.add("bg-rose-100", "text-rose-700");
             } else {
                 container.className = "mt-4 p-4 rounded-xl border border-slate-200 bg-slate-50 transition-all";
